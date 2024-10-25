@@ -14,4 +14,6 @@ var catalog = builder.AddProject<Catalog>("Catalog")
     .WithReference(rabbitmq)
     .WaitFor(rabbitmq);
 
+var search = builder.AddProject<Search>("Search");
+
 builder.Build().Run();
