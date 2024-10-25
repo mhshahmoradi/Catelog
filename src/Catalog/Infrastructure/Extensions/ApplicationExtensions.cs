@@ -14,11 +14,8 @@ public static class ApplicationExtensions
 
         builder.Services.AddMassTransit(configure =>
         {
-            configure.AddConsumers(Assembly.GetExecutingAssembly());
-
             configure.UsingRabbitMq((context, cfg) =>
             {
-                cfg.UseRawJsonDeserializer();
                 var host = builder.Configuration.GetConnectionString("messaging");
                 cfg.Host(host);
 
