@@ -1,4 +1,6 @@
-﻿namespace Catalog.Apis;
+﻿using Catalog.Infrastructure.IntegrationEvents;
+
+namespace Catalog.Apis;
 
 public static class CatalogItemApi
 {
@@ -28,7 +30,7 @@ public static class CatalogItemApi
             return TypedResults.ValidationProblem(validate.ToDictionary());
         }
 
-        var hasCategory = await services.Context.CatalogCategories.AnyAsync(x => x.Id == itemToCreate.CatalogId, cancellationToken);
+        var hasCategory = await services.Context.CatalogCategories.AnyAsync(x => x.Id == itemToCreate.CategoryId, cancellationToken);
         if (!hasCategory)
         {
             return TypedResults.BadRequest($"A category Id is not valid.");
@@ -50,10 +52,27 @@ public static class CatalogItemApi
             itemToCreate.Name,
             itemToCreate.Description,
             itemToCreate.MaxStockThreshold,
-            itemToCreate.BrandId, itemToCreate.CatalogId);
+            itemToCreate.BrandId, 
+            itemToCreate.CategoryId);
 
         services.Context.CatalogItems.Add(item);
         await services.Context.SaveChangesAsync(cancellationToken);
+
+        var hintUrl = $"/api/v1/items/{item.Id}";
+        
+        var loadedItem = await services.Context.CatalogItems
+            .Include(x => x.CatalogBrand)
+            .Include(x => x.CatalogCategory)
+            .FirstAsync(x => x.Id == item.Id, cancellationToken);
+        
+        await services.Publish.Publish(new CatalogItemAddedEvent(
+                loadedItem.Name,
+                loadedItem.Description,
+                loadedItem.CatalogCategory.Category,
+                loadedItem.CatalogBrand.Brand,
+                loadedItem.Slug,
+                hintUrl),
+            cancellationToken: cancellationToken);
 
         return TypedResults.Created($"/api/v1/items/{item.Id}");
     }
@@ -62,6 +81,7 @@ public static class CatalogItemApi
     [AsParameters] CatalogServices services,
     UpdateCatalogItemRequest itemToUpdate,
     IValidator<UpdateCatalogItemRequest> validator,
+    IPublishEndpoint publishEndpoint,
     CancellationToken cancellationToken)
     {
         var validate = validator.Validate(itemToUpdate);
@@ -70,8 +90,12 @@ public static class CatalogItemApi
             return TypedResults.ValidationProblem(validate.ToDictionary());
         }
 
-        var Item = await services.Context.CatalogItems.FirstOrDefaultAsync(i => i.Id == itemToUpdate.Id, cancellationToken);
-        if (Item is null)
+        var item = await services.Context.CatalogItems
+            .Include(catalogItem => catalogItem.CatalogCategory)
+            .Include(catalogItem => catalogItem.CatalogBrand)
+            .FirstOrDefaultAsync(i => i.Id == itemToUpdate.Id, cancellationToken);
+        
+        if (item is null)
         {
             return TypedResults.NotFound($"Item with id {itemToUpdate.Id} not found.");
         }
@@ -88,21 +112,33 @@ public static class CatalogItemApi
             return TypedResults.BadRequest($"A brand Id is not valid.");
         }
 
-        var hasItemSlug = await services.Context.CatalogItems.AnyAsync(x => x.Id != Item.Id &&
+        var hasItemSlug = await services.Context.CatalogItems.AnyAsync(x => x.Id != item.Id &&
                                                                             x.Slug == itemToUpdate.Name.ToKebabCase(), cancellationToken);
         if (hasItemSlug)
         {
             return TypedResults.BadRequest($"A Item with the slug '{itemToUpdate.Name.ToKebabCase()}' already exists.");
         }
 
-        Item.Update(itemToUpdate.Name,
+        item.Update(itemToUpdate.Name,
                     itemToUpdate.Description,
                     itemToUpdate.BrandId,
                     itemToUpdate.CatalogId);
 
         await services.Context.SaveChangesAsync(cancellationToken);
 
-        return TypedResults.Created($"/api/v1/items/{Item.Id}");
+        var hintUrl = $"/api/v1/items/{item.Id}";
+        
+        await services.Publish.Publish(new CatalogItemChangedEvent(
+            item.Name,
+            item.Description,
+            item.CatalogCategory.Category,
+            item.CatalogBrand.Brand,
+            item.Slug,
+            hintUrl
+            ),
+            cancellationToken: cancellationToken);
+
+        return TypedResults.Created($"/api/v1/items/{item.Id}");
     }
 
     public static async Task<Results<Created, ValidationProblem, NotFound<string>, BadRequest<string>>> UpdateMaxStockThreshold(

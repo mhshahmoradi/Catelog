@@ -4,7 +4,7 @@ namespace Catalog.Apis.Contracts;
 public sealed record CreateCatalogItemRequest(
     string Name,
     string Description,
-    int CatalogId,
+    int CategoryId,
     int BrandId,
     int MaxStockThreshold);
 
@@ -22,7 +22,7 @@ public sealed class CreateCatalogItemRequestValidator : AbstractValidator<Create
             .NotNull()
             .MaximumLength(5000);
 
-        RuleFor(x => x.CatalogId)
+        RuleFor(x => x.CategoryId)
             .NotNull();
 
         RuleFor(x => x.BrandId)
