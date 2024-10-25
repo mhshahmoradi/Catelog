@@ -14,24 +14,13 @@ public static class ApplicationExtensions
 
         builder.Services.AddMassTransit(configure =>
         {
-            var brokerConfig = builder.Configuration.GetSection(BrokerOptions.SectionName)
-                                                    .Get<BrokerOptions>();
-            if (brokerConfig is null)
-            {
-                throw new ArgumentNullException(nameof(BrokerOptions));
-            }
-
             configure.AddConsumers(Assembly.GetExecutingAssembly());
 
             configure.UsingRabbitMq((context, cfg) =>
             {
                 cfg.UseRawJsonDeserializer();
-
-                cfg.Host(brokerConfig.Host, hostConfigure =>
-                {
-                    hostConfigure.Username(brokerConfig.Username);
-                    hostConfigure.Password(brokerConfig.Password);
-                });
+                var host = builder.Configuration.GetConnectionString("messaging");
+                cfg.Host(host);
 
                 cfg.ConfigureEndpoints(context);
             });
