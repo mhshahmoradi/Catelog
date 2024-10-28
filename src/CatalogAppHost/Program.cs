@@ -1,4 +1,3 @@
-using CatalogAppHost.Extensions;
 using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -11,9 +10,9 @@ var rabbitmq = builder.AddRabbitMQ("messaging", brokerUsername, brokerPassword)
     .WithManagementPlugin(5328);
 
 var catalog = builder.AddProject<Catalog>("Catalog")
-    .WithReference(rabbitmq)
-    .WaitFor(rabbitmq);
+    .WithReference(rabbitmq);
 
-var search = builder.AddProject<Search>("Search");
+var search = builder.AddProject<Search>("Search")
+    .WithReference(rabbitmq);
 
 builder.Build().Run();

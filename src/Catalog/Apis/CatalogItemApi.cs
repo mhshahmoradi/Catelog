@@ -1,4 +1,4 @@
-﻿using Catalog.Infrastructure.IntegrationEvents;
+﻿using Catalog.EventContract;
 
 namespace Catalog.Apis;
 

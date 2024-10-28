@@ -1,6 +1,6 @@
-namespace Catalog.Infrastructure.IntegrationEvents;
+namespace Catalog.EventContract;
 
-public record CatalogItemChangedEvent(
+public sealed record CatalogItemAddedEvent(
     string Name,
     string Description,
     string CatalogCategory,
